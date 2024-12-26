@@ -1,350 +1,455 @@
 #!/bin/bash
 
-if [ -f /tmp/ps4alreadypwned.txt ]; then exit 0; fi
+# Offline Mode, C++, Web Server
 
-if [ -f /boot/firmware/PPPwn/config.sh ]; then
-source /boot/firmware/PPPwn/config.sh
+if [ -f /boot/firmware/PPPwn/PPPwn.tar ] ; then
+sudo tar -xf /boot/firmware/PPPwn/PPPwn.tar -C /boot/firmware/
+else
+echo -e '\r\n\033[31mInstall file not found\033[0m'
+exit 1
 fi
-if [ -z $CPPMETHOD ]; then CPPMETHOD="3"; fi
-if [ -z $INTERFACE ]; then INTERFACE="eth0"; fi
-if [ -z $FIRMWAREVERSION ]; then FIRMWAREVERSION="11.00"; fi
-if [ -z $USBETHERNET ]; then USBETHERNET=false; fi
-if [ -z $STAGE2METHOD ]; then STAGE2METHOD="flow"; fi
-if [ -z $SOURCEIPV6 ]; then SOURCEIPV6="2"; fi
-if [ -z $CUSTOMIPV6 ]; then CUSTOMIPV6="9f9f:41ff:9f9f:41ff"; fi
-if [ -z $DETECTMODE ]; then DETECTMODE="2"; fi
 
-if [ -z $PPPOECONN ]; then PPPOECONN=true; fi
-if [ -z $PWNAUTORUN ]; then PWNAUTORUN=false; fi
-if [ -z $TIMEOUT ]; then TIMEOUT="5m"; fi
-if [ -z $PPDBG ]; then PPDBG=false; fi
+echo -e ''
+echo -e '\033[37mPPPwn PS4 Jailbreak : Offline Mode, C++ and Web Server\033[0m'
+echo -e '\033[37mPPPwn by            : FloW\033[0m'
+echo -e '\033[37mGoldhen by          : SiSTR0\033[0m'
+echo -e '\033[37mHen by              : EchoStretch and BestPig\033[0m'
+echo -e '\033[37mOriginal Script     : Stooged\033[0m'
+echo -e '\033[37mC++ Port            : xfangfang\033[0m'
+echo -e '\033[37mMod By              : joe97tab\033[0m'
+echo -e ''
+echo -e '\r\n\033[31mPress Ctrl+C anytime to exit this script\033[0m'
+echo -e ''
+echo -e '\r\n\033[32mYou can input lowercase letter choice\033[0m'
 
-shutdown_device () {
-	coproc read -t 5 && wait "$!" || true
-	sudo ip link set $INTERFACE down
-	coproc read -t 2 && wait "$!" || true
-	sudo poweroff
-	coproc read -t 2 && wait "$!" || true
-	sudo shutdown -P now
-}
+echo -e '\r\n\033[33mWeb server need pppoe, nginx, php-fpm (8.1 up) and nmap package\033[0m'
+echo -e '\033[33mConnect to internet and install with this command :\033[0m'
+echo -e '\033[32msudo apt update\033[0m'
+echo -e '\033[32msudo apt install pppoe nginx php-fpm nmap -y\033[0m'
+echo -e '\033[32mOr use my pre-built image\033[0m'
 
-stop_pppoe () {
-	sudo systemctl stop pppoe
-	sudo /etc/init.d/nginx stop
-	sudo killall pppoe-server
-	if [ -f /boot/firmware/PPPwn/pwn.log ]; then
-		sudo rm -f /boot/firmware/PPPwn/*.log
-	fi
-}
 
-start_pppoe () {
-	sudo /etc/init.d/nginx start
-	sudo systemctl start pppoe
-	sudo ip link set $INTERFACE up
-}
+if [[ $(dpkg-query -W --showformat='${Status}\n' pppoe|grep "install ok installed")  == "" ]] ;then
+echo -e '\033[31mPlease install pppoe (sudo apt install pppoe -y)\033[0m'
+exit 1
+fi
+if [[ $(dpkg-query -W --showformat='${Status}\n' nginx|grep "install ok installed")  == "" ]] ;then
+echo -e '\033[31mPlease install nginx (sudo apt install nginx -y)\033[0m'
+exit 1
+fi
+if [[ $(dpkg-query -W --showformat='${Status}\n' php-fpm|grep "install ok installed")  == "" ]] ;then
+echo -e '\033[31mPlease install php-fpm (sudo apt install php-fpm -y)\033[0m'
+exit 1
+else
+PHPVER=$(sudo php -v | head -n 1 | cut -d " " -f 2 | cut -f1-2 -d".")
+if [[ ${PHPVER//.} -lt 81 ]]; then
+echo -e '\033[31mPhp install version : \033[33m'$PHPVER'\033[31m lowver than \033[32m8.1\033[0m'
+echo -e '\033[37mPlease use newer distro (at least bookworm, jammy) or install new php version\033[0m'
+exit 1
+fi
+if [[ $(dpkg-query -W --showformat='${Status}\n' nmap|grep "install ok installed")  == "" ]] ;then
+echo -e '\033[31mPlease install nmap (sudo apt install nmap -y)\033[0m'
+exit 1
+fi
+fi
 
-if [[ $DETECTMODE == "3" ]] || [[ $DETECTMODE == "4" ]] ;then
-if [[ ${STAGE2METHOD,,} == "goldhen" ]] || [[ ${STAGE2METHOD,,} == *"gold"* ]] ;then
-if [[ -z $1 ]]; then
-	start_pppoe
-	coproc read -t 2 && wait "$!" || true
-fi	
-ghcounter=0
-while [[ $(sudo nmap -p 3232 192.168.2.2 | grep '3232/tcp' | cut -f2 -d' ') == "" ]]
-do
-	coproc read -t 2 && wait "$!" || true
-	if [[ $((ghcounter++)) -eq 10 ]]; then
-		sudo reboot
-	fi
+while true; do
+read -p "$(printf '\r\n\033[37mDo you want to using web server?\r\n\033[37m(Y|N):\033[0m')" useweb
+case $useweb in
+[Yy]* ) 
+USEWEB="true"
+echo -e '\r\n\033[33mWeb server enabled at 192.168.2.1\033[0m'
+break;;
+[Nn]* )
+USEWEB="false"
+echo -e '\r\n\033[32mWeb server disable (faster pwn speed)\033[0m'
+break;;
+* ) echo -e '\033[31mPlease answer Y or N\033[0m';;
+esac
 done
-coproc read -t 5 && wait "$!" || true
-GHT=$(sudo nmap -p 3232 192.168.2.2 | grep '3232/tcp' | cut -f2 -d' ')
-if [[ $GHT == *"close"* ]] ; then
-	coproc read -t 2 && wait "$!" || true
-	GHT=$(sudo nmap -p 3232 192.168.2.2 | grep '3232/tcp' | cut -f2 -d' ')
-fi
-if [[ $GHT == *"open"* ]] ; then
-	echo -e "\n\033[95mGoldhen found aborting pppwn\033[0m\n" | sudo tee /dev/tty1
-	if [ $PPPOECONN = true ] ; then
-		echo 'GoldHEN' | sudo tee /tmp/ps4alreadypwned.txt
-		if [[ -z $1 ]]; then
-			start_pppoe
-			coproc read -t 2 && wait "$!" || true
-		fi
-		exit 0
-	else
-		shutdown_device
-	fi
-else
-echo -e "\n\033[95mGoldhen not found\033[0m\n" | sudo tee /dev/tty1
-fi
-else
-echo -e "\n\033[95mHEN detection not support\033[0m\n" | sudo tee /dev/tty1
-fi
-fi
 
-if [[ -z $1 ]]; then
-	if [ $PPPOECONN = true ] ; then
-		if [ $PWNAUTORUN = true ] ; then
-			DETECTLINK=true
-			stop_pppoe
-		else
-			start_pppoe
-			exit 0
-		fi
-	else
-		DETECTLINK=true
-		stop_pppoe
-	fi
-else
-	DETECTLINK=false
-	stop_pppoe
-fi
+echo -e ''
+echo -e '\033[37mDo you want to disable some process, it will reduce boot time and increase system performance\033[0m'
+echo -e '\033[37m1 ) For raspbian distro (raspberry pi)\033[0m'
+echo -e '\033[37m2 ) For armbian distro (tvbox)\033[0m'
+echo -e '\033[37m3 ) Not disable\033[0m'
+while true; do
+read -p "$(printf '\r\n\033[37mPlease enter your choice\r\n\r\n\033[37m(1|2|3)?: \033[0m')" speedchoice
+case $speedchoice in
+[1]* )
+echo -e '\r\n\033[32mSpeed up raspbian...\033[0m'
+initial_turbo=30
+sudo systemctl stop bluetooth
+sudo systemctl disable bluetooth
+sudo systemctl stop hciuart.service
+sudo systemctl disable hciuart.service
+sudo systemctl stop raspi-config
+sudo systemctl disable raspi-config
+sudo systemctl stop triggerhappy
+sudo systemctl disable triggerhappy
+sudo systemctl stop apt-daily
+sudo systemctl disable apt-daily
+sudo systemctl stop apt-daily-upgrade
+sudo systemctl disable apt-daily-upgrade
+sudo systemctl stop keyboard-setup
+sudo systemctl disable keyboard-setup
+sudo systemctl stop rsyslog
+sudo systemctl disable rsyslog
+sudo systemctl stop logrotate
+sudo systemctl disable logrotate
+sudo systemctl stop man-db
+sudo systemctl disable man-db
+sudo systemctl stop avahi-daemon
+sudo systemctl disable avahi-daemon
+sudo systemctl stop rpi-eeprom-update
+sudo systemctl disable rpi-eeprom-update
+sudo systemctl stop dphys-swapfile
+sudo systemctl disable dphys-swapfile
+sudo chmod -x /etc/init.d/dphys-swapfile
+sudo swapoff -a
+sudo rm /var/swap 
+break;;
+[2]* ) 
+echo -e '\r\n\033[32mSpeed up armbian...\033[0m'
+sudo systemctl stop armbian-ramlog
+sudo systemctl disable armbian-ramlog
+sudo systemctl stop armbian-zram-config
+sudo systemctl disable armbian-zram-config
+sudo systemctl stop armbian-hardware-monitor
+sudo systemctl disable armbian-hardware-monitor
+sudo systemctl stop armbian-hardware-optimize
+sudo systemctl disable armbian-hardware-optimize
+sudo systemctl stop NetworkManager-wait-online
+sudo systemctl disable NetworkManager-wait-online
+sudo systemctl stop fake-hwclock
+sudo systemctl disable fake-hwclock
+sudo systemctl stop rsyslog
+sudo systemctl disable rsyslog
+sudo systemctl stop keyboard-setup
+sudo systemctl disable keyboard-setup
+sudo systemctl stop e2scrub_reap
+sudo systemctl disable e2scrub_reap
+sudo systemctl stop ntp
+sudo systemctl disable ntp
+echo 'ENABLE=true
+MIN_SPEED=1296000
+MAX_SPEED=1510000
+GOVERNOR=performance' | sudo tee /etc/default/cpufrequtils
+break;;
+[3]* ) 
+echo -e '\r\n\033[31mNot disable\033[0m'
+break;;
+* ) echo -e '\r\n\033[31mPlease answer 1 or 2 or 3\033[0m';;
+esac
+done
 
-PITYP=$(tr -d '\0' </proc/device-tree/model) 
-if [[ $PITYP == *"Raspberry Pi 2"* ]] ;then
-CPPBIN="pppwn7"
-elif [[ $PITYP == *"Raspberry Pi 3"* ]] ;then
-CPPBIN="pppwn64"
-elif [[ $PITYP == *"Raspberry Pi 4"* ]] ;then
-CPPBIN="pppwn64"
-elif [[ $PITYP == *"Raspberry Pi Compute Module 4"* ]] ;then
-CPPBIN="pppwn64"
-elif [[ $PITYP == *"Raspberry Pi 5"* ]] ;then
-CPPBIN="pppwn64"
-elif [[ $PITYP == *"Raspberry Pi Zero 2"* ]] ;then
-CPPBIN="pppwn64"
-elif [[ $PITYP == *"Raspberry Pi Zero"* ]] ;then
-CPPBIN="pppwn11"
-elif [[ $PITYP == *"Raspberry Pi"* ]] ;then
-CPPBIN="pppwn11"
-else
-CPPBIN="pppwn64"
-fi
-arch=$(getconf LONG_BIT)
-if [ $arch -eq 32 ] && [ $CPPBIN = "pppwn64" ] && [[ ! $PITYP == *"Raspberry Pi 4"* ]] && [[ ! $PITYP == *"Raspberry Pi 5"* ]] ; then
-CPPBIN="pppwn7"
-fi
+echo -e ''
+echo -e '\033[37m1 ) C++ V1 support old IPv6 Only (Fastest speed)\033[0m'
+echo -e '\033[37m2 ) C++ from stooged complied\033[0m'
+echo -e '\033[37m3 ) C++ Latest from xfangfang (Default)\033[0m'
+echo -e '\033[37m4 ) C++ from nn9dev (1.2b1) added spray, corrupt and pin number\033[0m'
+while true; do
+read -p "$(printf '\r\n\033[37mPlease enter your choice for C++ method (cursed PS4 should select 2 or 3\r\n\r\n\033[37m(1|2|3|4)?: \033[0m')" cppchoice
+case $cppchoice in
+[1]* )
+CPPM="1"
+echo -e '\r\n\033[32mC++ Version 1.0.0 for old IPv6 Only from xfangfang being used\033[0m'
+break;;
+[2]* ) 
+CPPM="2"
+echo -e '\r\n\033[33mC++ from stooged complied is being used\033[0m'
+break;;
+[3]* )
+CPPM="3"
+echo -e '\r\n\033[32mC++ Latest from xfangfang is being used\033[0m'
+break;;
+[4]* )
+CPPM="4"
+echo -e '\r\n\033[32mC++ from nn9dev is being used\033[0m'
+break;;
+* ) echo -e '\r\n\033[31mPlease answer 1 or 2 or 3 or 4\033[0m';;
+esac
+done
 
-STAGE1F="/boot/firmware/PPPwn/stage1/stage1_${FIRMWAREVERSION//.}.bin"
+while true; do
+read -p "$(printf '\r\n\033[37mWould you like to change the firmware version being used, the default is 11.00\r\n\r\n\033[37m(Y|N)?: \033[0m')" fwset
+case $fwset in
+[Yy]* ) 
+while true; do
+read -p  "$(printf '\r\n\033[37mEnter the firmware version [ 7.00 | 7.01 | 7.02 | 7.50 | 7.51 | 7.55 | 8.00 | 8.01 | 8.03 | 8.50 | 8.52 | 9.00 | 9.03 | 9.04 | 9.50 | 9.51 | 9.60 | 10.00 | 10.01 | 10.50 | 10.70 | 10.71 | 11.00 ]: \033[0m')" FWV
+case $FWV in
+"" ) 
+echo -e '\r\n\033[31mCannot be empty!\033[0m';;
+* )  
+if grep -q '^[0-9.]*$' <<<$FWV ; then 
 
-if [[ ${STAGE2METHOD,,} == "goldhen" ]] || [[ ${STAGE2METHOD,,} == *"gold"* ]] ;then
-STAGE2PATH="goldhen"
-elif [[ ${STAGE2METHOD,,} == "hen" ]] || [[ ${STAGE2METHOD,,} == *"vtx"* ]] ;then
-STAGE2PATH="vtxhen"
-elif [[ ${STAGE2METHOD,,} == "bestpig" ]] || [[ ${STAGE2METHOD,,} == *"pig"* ]] ;then
-STAGE2PATH="bestpig"
-else
-STAGE2PATH="Hey, joe97tab why not add new stage2"
+if [[ ! "$FWV" =~ ^("7.00"|"7.01"|"7.02"|"7.50"|"7.51"|"7.55"|"8.00"|"8.01"|"8.03"|"8.50"|"8.52"|"9.00"|"9.03"|"9.04"|"9.50"|"9.51"|"9.60"|"10.00"|"10.01"|"10.50"|"10.70"|"10.71"|"11.00")$ ]]  ; then
+echo -e '\r\n\033[31mThe version must be [ 7.00 | 7.01 | 7.02 | 7.50 | 7.51 | 7.55 | 8.00 | 8.01 | 8.03 | 8.50 | 8.52 | 9.00 | 9.03 | 9.04 | 9.50 | 9.51 | 9.60 | 10.00 | 10.01 | 10.50 | 10.70 | 10.71 | 11.00 ]\033[0m';
+else 
+break;
 fi
+else 
+echo -e '\r\n\033[31mThe version must only contain alphanumeric characters\033[0m';
+fi
+esac
+done
+echo -e '\r\n\033[32mYou are using '$FWV'\033[0m'
+break;;
+[Nn]* ) 
+echo -e '\r\n\033[32mUsing the default setting: 11.00\033[0m'
+FWV="11.00"
+break;;
+* ) echo -e '\r\n\033[31mPlease answer Y or N\033[0m';;
+esac
+done
 
-if [ -f /boot/firmware/PPPwn/stage2/$STAGE2PATH/stage2_${FIRMWAREVERSION//.}.bin ] ; then
-STAGE2F="/boot/firmware/PPPwn/stage2/$STAGE2PATH/stage2_${FIRMWAREVERSION//.}.bin"
-if [[ $STAGE2PATH == "goldhen" ]] ; then
-XFGH="-gh"
+echo -e ''
+echo -e '\033[37mA ) GoldHEN (FW 9.00, 9.60, 10.00, 10.01, 10.50, 10.70, 10.71, 11.00)\033[0m'
+echo -e '\033[37mB ) HEN (FW 7.00-11.00)\033[0m'
+echo -e '\033[37mC ) TheOfficialFloW (No Homebrew Enable) (FW 7.00-11.00)\033[0m'
+echo -e '\033[37mD ) HEN by BestPig (FW 10.50 Only)\033[0m'
+nostage2=true
+while $nostage2; do
+while true; do
+read -p "$(printf '\r\n\033[37mPlease enter your choice for jailbreak method\r\n\033[37m(A|B|C|D)?: \033[0m')" s2choice
+case $s2choice in
+[Aa]* ) 
+if [ -f /boot/firmware/PPPwn/stage2/goldhen/stage2_${FWV//.}.bin ] ; then
+S2METHOD="goldhen"
+nostage2=false
+echo -e '\r\n\033[32mGoldHEN is being used\033[0m'
 else
-XFGH=""
+echo -e '\r\n\033[31mGoldHEN not support\033[0m'
 fi
+break;;
+[Bb]* ) 
+if [ -f /boot/firmware/PPPwn/stage2/vtxhen/stage2_${FWV//.}.bin ] ; then
+S2METHOD="hen"
+nostage2=false
+echo -e '\r\n\033[32mHEN is being used\033[0m'
 else
-STAGE2F="/boot/firmware/PPPwn/stage2/TheOfficialFloW/stage2_${FIRMWAREVERSION//.}.bin"
-XFGH=""
+echo -e '\r\n\033[31mHEN not support\033[0m'
 fi
+break;;
+[Cc]* ) 
+S2METHOD="flow"
+nostage2=false
+echo -e '\r\n\033[33mTheOfficialFloW is being used\033[0m'
+break;;
+[Dd]* ) 
+if [ -f /boot/firmware/PPPwn/stage2/bestpig/stage2_${FWV//.}.bin ] ; then
+S2METHOD="bestpig"
+nostage2=false
+echo -e '\r\n\033[32mHEN by BestPig is being used\033[0m'
+else
+echo -e '\r\n\033[31mHEN by BestPig not support\033[0m'
+fi
+break;;
+* ) echo -e '\r\n\033[31mPlease answer A or B or C or D\033[0m';;
+esac
+done
+done
 
-if [[ $CPPMETHOD == *"1"* ]] || [[ ${CPPMETHOD,,} == *"v1"* ]] ;then
-CPPBIN+='v1'
-CPPNAME="v1.0.0 xfangfang c++ binary"
-PPPwnPS4="$CPPBIN --interface "$INTERFACE" --fw "${FIRMWAREVERSION//.}" --stage1 "$STAGE1F" --stage2 "$STAGE2F""
-else
-if [ -f /boot/firmware/PPPwn/pconfig.sh ]; then
-source /boot/firmware/PPPwn/pconfig.sh
-fi
-if [ -z $XFWAP ]; then XFWAP="1"; fi
-if [ -z $XFGD ]; then XFGD="4"; fi
-if [ -z $XFBS ]; then XFBS="0"; fi
-if [ -z $XFNWB ]; then XFNWB=false; fi
-if [ -z $SPRAY_NUM ]; then SPRAY_NUM="1000"; fi
-if [ -z $CORRUPT_NUM ]; then CORRUPT_NUM="1"; fi
-if [ -z $PIN_NUM ]; then PIN_NUM="1000"; fi
-if [[ $SOURCEIPV6 == "3" ]] ; then
-if [[ $CUSTOMIPV6 == "" ]] ; then
-XFIP="fe80::9f9f:41ff:9f9f:41ff"
-else
-XFIP="fe80::"
-XFIP+=$CUSTOMIPV6
-fi
-else
-if [[ $SOURCEIPV6 == "1" ]] ; then
-XFIP="fe80::4141:4141:4141:4141"
-else
-XFIP="fe80::9f9f:41ff:9f9f:41ff"
-fi
-fi
-if [ $XFNWB = true ] ; then
-XFNW="--no-wait-padi"
-else
-XFNW=""
-fi
-if [[ $((XFWAP)) -lt 1 ]] || [[ $((XFWAP)) -gt 20 ]]; then XFWAP="1"; fi
-if [[ $((XFGD)) -lt 1 ]] || [[ $((XFGD)) -gt 4097 ]]; then XFGD="4"; fi
-if [[ $((XFBS)) -lt 0 ]] || [[ $((XFBS)) -gt 20480 ]]; then XFBS="0"; fi
-if [[ $CPPMETHOD == *"2"* ]] || [[ ${CPPMETHOD,,} == *"s"* ]] ;then
-CPPNAME="stooged c++ binary"
-PPPwnPS4="$CPPBIN --interface "$INTERFACE" --fw "${FIRMWAREVERSION//.}" --ipv "$XFIP" --wait-after-pin $XFWAP --groom-delay $XFGD --buffer-size $XFBS $XFNW $XFGH"
-elif [[ $CPPMETHOD == *"4"* ]] || [[ ${CPPMETHOD,,} == *"n"* ]] ;then
-CPPBIN+='nn9dev'
-CPPNAME="nn9dev c++ binary 1.2b1"
-if [[ $((SPRAY_NUM)) -lt 400 ]] || [[ $((SPRAY_NUM)) -gt 1500 ]]; then SPRAY_NUM="1000"; fi
-if [[ $((CORRUPT_NUM)) -lt 1 ]] || [[ $((CORRUPT_NUM)) -gt 40 ]]; then CORRUPT_NUM="1"; fi
-if [[ $((PIN_NUM)) -lt 1000 ]] || [[ $((PIN_NUM)) -gt 2000 ]]; then PIN_NUM="1000"; fi
-PPPwnPS4="$CPPBIN --interface "$INTERFACE" --fw "${FIRMWAREVERSION//.}" --ipv6 "$XFIP" --stage1 "$STAGE1F" --stage2 "$STAGE2F" --spray-num 0x$SPRAY_NUM --corrupt-num 0x$CORRUPT_NUM --pin-num 0x$PIN_NUM --wait-after-pin $XFWAP --groom-delay $XFGD --buffer-size $XFBS $XFNW"
-else
-if [[ $SOURCEIPV6 == "1" ]] ; then
-CPPBIN+='old'
-else
-CPPBIN+='new'
-fi
-CPPNAME="latest xfangfang c++ binary"
-PPPwnPS4="$CPPBIN --interface "$INTERFACE" --fw "${FIRMWAREVERSION//.}" --stage1 "$STAGE1F" --stage2 "$STAGE2F" --wait-after-pin $XFWAP --groom-delay $XFGD --buffer-size $XFBS $XFNW"
-fi
-fi
-PPPwnPS4="$(echo -e "${PPPwnPS4}" | sed -e 's/[[:space:]]*$//')"
+while true; do
+read -p "$(printf '\r\n\033[37mAre you using a usb to ethernet adapter for the console connection\r\n\033[37m(Y|N)?: \033[0m')" usbeth
+case $usbeth in
+[Yy]* ) 
+USBE="true"
+echo -e '\r\n\033[33mUsb to ethernet is being used\033[0m'
+break;;
+[Nn]* ) 
+echo -e '\r\n\033[32mUsb to ethernet is NOT being used\033[0m'
+USBE="false"
+break;;
+* ) echo -e '\r\n\033[31mPlease answer Y or N\033[0m';;
+esac
+done
 
-echo -e "\n\n\033[36m _____  _____  _____                 
-|  __ \\|  __ \\|  __ \\
-| |__) | |__) | |__) |_      ___ __
-|  ___/|  ___/|  ___/\\ \\ /\\ / / '_ \\
-| |    | |    | |     \\ V  V /| | | |
-|_|    |_|    |_|      \\_/\\_/ |_| |_|\033[0m
-\n\033[33mPPPwn\033[0m\n" | sudo tee /dev/tty1
-
-
-if [ $USBETHERNET = true ] ; then
-echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/unbind >/dev/null
-coproc read -t 1 && wait "$!" || true
-echo '1-1' | sudo tee /sys/bus/usb/drivers/usb/bind >/dev/null
-coproc read -t 2 && wait "$!" || true
-sudo ip link set $INTERFACE up
-coproc read -t 1 && wait "$!" || true
-else
-sudo ip link set $INTERFACE down
-coproc read -t 2 && wait "$!" || true
-sudo ip link set $INTERFACE up
-coproc read -t 1 && wait "$!" || true
+INUM=0
+echo -e '\r\n  \033[44m\033[97m Interface list \033[0m\r\n'
+readarray -t difcearr  < <(sudo ip link | cut -d " " -f-2 | cut -d ":" -f2-2)
+for difce in "${difcearr[@]}"; do
+if [ ! -z $difce ]; then
+if [ $difce != "lo" ] && [[ $difce != *"ppp"* ]] && [[ ! $difce == *"wlan"* ]]; then
+if [ -z $DEFIFCE ]; then
+DEFIFCE=${difce/ /}
 fi
-
-echo -e "\n\033[36m$PITYP\033[92m\nFirmware:\033[93m $FIRMWAREVERSION\033[92m\nInterface:\033[93m $INTERFACE\033[0m" | sudo tee /dev/tty1
-
-echo -e "\033[92mPPPwn:\033[93m C++ $CPPBIN \033[0m" | sudo tee /dev/tty1
-
-echo -e "\033[92mRun:\033[93m $PPPwnPS4 \033[0m" | sudo tee /dev/tty1
-
-if [ $DETECTLINK = true ] ; then
-if [[ $DETECTMODE == "2" ]] || [[ $DETECTMODE == "4" ]] ;then
-if [[ $(sudo cat /sys/class/net/$INTERFACE/operstate) == *"down"* ]] ; then
-while [ true ]
-do
-if [[ $(sudo cat /sys/class/net/$INTERFACE/operstate) == *"up"* ]] ; then
-break
-else
-coproc read -t 2 && wait "$!" || true
+fi
+echo -e $INUM': \033[33m'${difce/ /}'\033[0m'
+interfaces+=(${difce/ /})
+((INUM++))
 fi
 done
-fi
-fi
-fi
+echo -e '\r\n\033[35mDetected lan interface: \033[33m'$DEFIFCE'\033[0m'
 
-echo -e "\033[95mReady for console connection\033[0m" | sudo tee /dev/tty1
-
-if [ $PPDBG = true ] ; then
-if [[ $DETECTMODE == "2" ]] ; then
-DETECTDES="PS4 Power on detection"
-elif [[ $DETECTMODE == "3" ]] ; then
-DETECTDES="GoldHEN detection"
-elif [[ $DETECTMODE == "4" ]] ; then
-DETECTDES="PS4 Power on & GoldHEN detection"
-else
-DETECTDES="Disable detection"
+while true; do
+read -p "$(printf '\r\n\033[37mWould you like to change the lan interface, N = Using detected lan interface\r\n\033[37m(Y|N)?: \033[0m')" ifset
+case $ifset in
+[Yy]* ) 
+while true; do
+read -p  "$(printf '\r\n\033[37mEnter the interface value: \033[0m')" IFCE
+case $IFCE in
+"" ) 
+echo -e '\r\n\033[31mCannot be empty!\033[0m';;
+* )  
+if grep -q '^[0-9a-zA-Z_ -]*$' <<<$IFCE ; then 
+if [ ${#IFCE} -le 1 ]  || [ ${#IFCE} -ge 17 ] ; then
+echo -e '\r\n\033[31mThe interface must be between 2 and 16 characters long\033[0m';
+else 
+break;
 fi
-sudo echo '
-CPPMETHOD="'$CPPMETHOD'" >>> '$CPPNAME'
-INTERFACE="'$INTERFACE'"
-FIRMWAREVERSION="'$FIRMWAREVERSION'"
-USBETHERNET='$USBETHERNET'
-STAGE2METHOD="'$STAGE2METHOD'" >>> XFGH='$XFGH'
-SOURCEIPV6="'$SOURCEIPV6'" >>> XFIP='$XFIP'
-DETECTMODE="'$DETECTMODE'" >>> '$DETECTDES'
-PPPOECONN='$PPPOECONN'
-PWNAUTORUN='$PWNAUTORUN'
-TIMEOUT="'$TIMEOUT'"
-PPDBG='$PPDBG'
-XFWAP="'$XFWAP'"
-XFGD="'$XFGD'"
-XFBS="'$XFBS'"
-XFNWB='$XFNWB' >>> no-wait-padi (XFNW)='$XFNW'
-SPRAY_NUM=0x'$SPRAY_NUM'
-CORRUPT_NUM=0x'$CORRUPT_NUM'
-PIN_NUM=0x'$PIN_NUM'
-====================
-args from script >>> '$PPPwnPS4'
-====================' > /boot/firmware/PPPwn/args.log
+else 
+echo -e '\r\n\033[31mThe interface must only contain alphanumeric characters\033[0m';
 fi
-
-pwncounter=0
-while [ true ]
-do
-while read -r stdo ; 
-do
-if [ $PPDBG = true ] ; then
-	echo -e $stdo | sudo tee /dev/tty1 | sudo tee /dev/pts/* | sudo tee -a /boot/firmware/PPPwn/pwn.log
-	if [[ $stdo == *"args:"* ]] && [[ $((pwncounter)) -eq 0 ]]; then
-		sudo echo -e 'args from c++ binary >>> '$stdo'' >> /boot/firmware/PPPwn/args.log
-	fi
-	if [[ $stdo == *"NUM"* ]] && [[ $((pwncounter)) -eq 1 ]]; then
-		sudo echo -e ''$stdo'' >> /boot/firmware/PPPwn/args.log
-	fi
-fi
-if [[ $stdo == "[+] Done!" ]] ; then
-	sudo ip link set $INTERFACE down
-	((pwncounter++))
-	echo ''$STAGE2METHOD'' | sudo tee /tmp/ps4alreadypwned.txt
-	echo -e "\033[32m\nConsole PPPwned! \033[0m\n" | sudo tee /dev/tty1
-	if [ $PPPOECONN = true ] ; then
-		coproc read -t 5 && wait "$!" || true
-		if [ $PPDBG = true ] ; then
-			sudo echo -e '\n[+] Done!' >> /boot/firmware/PPPwn/args.log
-		fi
-		start_pppoe
-	else
-		if [[ $DETECTMODE == "3" ]] || [[ $DETECTMODE == "4" ]] ;then
-		if [[ ${STAGE2METHOD,,} == "goldhen" ]] || [[ ${STAGE2METHOD,,} == *"gold"* ]] ;then
-			coproc read -t 5 && wait "$!" || true
-			start_pppoe
-			coproc read -t 7 && wait "$!" || true
-		fi
-		fi
-		shutdown_device
-	fi
-	exit 0
-fi
-if [ $PPDBG = true ] ; then
-if [[ $stdo == *"] args:"* ]] ; then
-	((pwncounter++))
-elif [[ $stdo == *"Scanning for corrupted object...failed"* ]] ; then
- 	echo -e "\033[31m\nFailed retrying...\033[0m\n" | sudo tee /dev/tty1
-elif [[ $stdo == *"Scanning for corrupted object...found"* ]] ; then
-	sudo echo -e '\nTotal PPPwn attempted : '$pwncounter' time(s)\n' >> /boot/firmware/PPPwn/args.log
-	sudo echo -e ''$stdo'' >> /boot/firmware/PPPwn/args.log
-elif [[ $stdo == *"Unsupported firmware version"* ]] ; then
- 	echo -e "\033[31m\nUnsupported firmware version\033[0m\n" | sudo tee /dev/tty1
- 	exit 1
-elif [[ $stdo == *"Cannot find interface with name of"* ]] ; then
- 	echo -e "\033[31m\nInterface $INTERFACE not found\033[0m\n" | sudo tee /dev/tty1
- 	exit 1
-fi
-fi
-done < <(timeout $TIMEOUT sudo /boot/firmware/PPPwn/$PPPwnPS4)
-sudo ip link set $INTERFACE down
-coproc read -t 2 && wait "$!" || true
-sudo ip link set $INTERFACE up
-coproc read -t 1 && wait "$!" || true
+esac
 done
+echo -e '\r\n\033[33mYou are using '$IFCE'\033[0m'
+break;;
+[Nn]* ) 
+echo -e '\r\n\033[32mUsing the detected setting: \033[33m'$DEFIFCE'\033[0m'
+IFCE=$DEFIFCE
+break;;
+* ) echo -e '\r\n\033[31mPlease answer Y or N\033[0m';;
+esac
+done
+
+if [[ $CPPM == "1" ]] ;then
+SOURCEIP="1"
+CUSTOMIP="4141:4141:4141:4141"
+else
+echo -e '\r\n\033[37mNew IPv6 slower than old IPv6, no need to using new IPv6 if pwn work\033[0m'
+while true; do
+read -p "$(printf '\r\n\033[37mAre you using new IPv6 for pwn, it will improve cursed PS4\r\n\033[37m(Y|N)?: \033[0m')" useipv
+case $useipv in
+[Yy]* ) 
+SOURCEIP="2"
+CUSTOMIP="9f9f:41ff:9f9f:41ff"
+echo -e '\r\n\033[33mNew IPv6 is being used\033[0m'
+break;;
+[Nn]* ) 
+echo -e '\r\n\033[32mOld IPv6 is being used\033[0m'
+SOURCEIP="1"
+CUSTOMIP="4141:4141:4141:4141"
+break;;
+* ) echo -e '\r\n\033[31mPlease answer Y or N\033[0m';;
+esac
+done
+fi
+
+#sudo sed -i "/^dns=.*/d" /etc/NetworkManager/NetworkManager.conf
+#sudo sed -i "/^rc-manager=.*/d" /etc/NetworkManager/NetworkManager.conf
+#sudo sed -i "2i dns=none" /etc/NetworkManager/NetworkManager.conf
+#sudo sed -i "3i rc-manager=unmanaged" /etc/NetworkManager/NetworkManager.conf
+sudo sed -i "s^managed=false^managed=true^g" /etc/NetworkManager/NetworkManager.conf
+#echo '' | sudo tee /etc/resolv.conf.manually-configured
+#sudo rm /etc/resolv.conf
+#sudo ln -s /etc/resolv.conf.manually-configured /etc/resolv.conf
+#echo '[keyfile]
+#unmanaged-devices=type:wifi' | sudo tee /etc/NetworkManager/conf.d/99-unmanaged-devices.conf
+
+echo 'auto '$IFCE'
+iface '$IFCE' inet auto
+up ip link set '$IFCE' promisc on
+down ip link set '$IFCE' promisc off' | sudo tee /etc/network/interfaces
+
+echo 'auth
+lcp-echo-failure 3
+lcp-echo-interval 60
+mtu 1482
+mru 1482
+noauth
+ms-dns 192.168.2.1
+netmask 255.255.255.0
+defaultroute
+proxyarp
+noipx
+novj
+nobsdcomp
+noccp' | sudo tee /etc/ppp/pppoe-server-options
+
+sudo systemctl restart NetworkManager
+sudo systemctl restart networking
+
+PHPVER=$(sudo php -v | head -n 1 | cut -d " " -f 2 | cut -f1-2 -d".")
+echo 'server {
+	listen 80 default_server;
+	listen [::]:80 default_server;
+	root /boot/firmware/PPPwn;
+	index index.html index.htm index.php;
+	server_name _;
+	location / {
+		try_files $uri $uri/ =404;
+	}
+	error_page 404 = @mainindex;
+	location @mainindex {
+	return 302 /;
+	}
+	location ~ \.php$ {
+    include snippets/fastcgi-php.conf;
+    fastcgi_pass unix:/var/run/php/php'$PHPVER'-fpm.sock;
+	}
+}' | sudo tee /etc/nginx/sites-enabled/default
+sudo sed -i "s^www-data	ALL=(ALL) NOPASSWD: ALL^^g" /etc/sudoers
+echo 'www-data	ALL=(ALL) NOPASSWD: ALL' | sudo tee -a /etc/sudoers
+sudo /etc/init.d/nginx restart
+
+echo '[Service]
+WorkingDirectory=/boot/firmware/PPPwn
+ExecStart=/boot/firmware/PPPwn/pppoe.sh
+Restart=never
+User=root
+Group=root
+Environment=NODE_ENV=production
+[Install]
+WantedBy=multi-user.target' | sudo tee /etc/systemd/system/pppoe.service
+sudo chmod u+rwx /etc/systemd/system/pppoe.service
+
+# create general config
+echo '#!/bin/bash
+CPPMETHOD="'${CPPM/ /}'"
+INTERFACE="'${IFCE/ /}'"
+FIRMWAREVERSION="'${FWV/ /}'"
+USBETHERNET='$USBE'
+STAGE2METHOD="'${S2METHOD/ /}'"
+SOURCEIPV6="'${SOURCEIP/ /}'"
+CUSTOMIPV6="'${CUSTOMIP/ /}'"
+DETECTMODE="2"
+PPPOECONN='$USEWEB'
+PWNAUTORUN=false
+TIMEOUT="5m"
+PPDBG=false' | sudo tee /boot/firmware/PPPwn/config.sh
+
+# create pppwn c++ config
+echo '#!/bin/bash
+XFWAP="1"
+XFGD="4"
+XFBS="0"
+XFNWB=false
+SPRAY_NUM="1000"
+CORRUPT_NUM="1"
+PIN_NUM="1000"' | sudo tee /boot/firmware/PPPwn/pconfig.sh
+
+sudo rm /usr/lib/systemd/system/bluetooth.target
+sudo rm /usr/lib/systemd/system/network-online.target
+
+sudo sed -i 's^sudo bash /boot/firmware/PPPwn/run_web.sh \&^^g' /etc/rc.local
+echo '[Service]
+WorkingDirectory=/boot/firmware/PPPwn
+ExecStart=/boot/firmware/PPPwn/run_web.sh
+Restart=never
+User=root
+Group=root
+Environment=NODE_ENV=production
+[Install]
+WantedBy=multi-user.target' | sudo tee /etc/systemd/system/pipwn.service
+sudo rm /boot/firmware/PPPwn/PPPwn.tar
+sudo rm /boot/firmware/PPPwn/run.sh
+sudo chmod u+rwx /etc/systemd/system/pipwn.service
+sudo systemctl enable pipwn
+sudo systemctl start pipwn
+coproc read -t 4 && wait "$!" || true
+echo -e ''
+echo -e '\033[32mInstall complete\033[0m'
+echo -e '\r\n\033[37mRun : sudo poweroff : to shutdown the device\033[0m'
+echo -e '\033[37mor\033[0m' 
+echo -e '\033[37mPress Ctrl+C to stop pppwn\033[0m'
